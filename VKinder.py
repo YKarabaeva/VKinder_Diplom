@@ -20,30 +20,28 @@ def write_msg(user_id, message):
     vk.method('messages.send', {'user_id': user_id, 'message': message,  'random_id': randrange(10 ** 7), })
 
 
-def get_user_name_surname(user_id):
+def get_user_info(user_id):
     url = 'https://api.vk.com/method/users.get'
     params = {'user_id': user_id,
               'access_token': user_token,
               'v': '5.131',
-              'fields': 'name, surname'
+              'fields': 'name, surname, bdate, sex, relation, home_town'
               }
     res = requests.get(url, params=params)
     user_info = res.json()
-    user_name = user_info['response'][0]['first_name']
-    user_surname = user_info['response'][0]['last_name']
-    return user_name, user_surname
+    try:
+        user_name = user_info['response'][0]['first_name']
+        user_surname = user_info['response'][0]['last_name']
+        user_sex = user_info['response'][0]['sex']
+        user_bdate = user_info['response'][0]['bdate']
+        user_relation = user_info['response'][0]['relation']
+        user_town = user_info['response'][0]['home_town']
+        return user_name, user_surname, user_sex, user_bdate, user_relation, user_town
+    except KeyError:
+        write_msg(user_id, "Ошибка получения данных, попробуйте еще раз!")
 
 
-def get_user_sex(user_id):
-    url = 'https://api.vk.com/method/users.get'
-    params = {'user_id': user_id,
-              'access_token': user_token,
-              'v': '5.131',
-              'fields': 'sex'
-              }
-    res = requests.get(url, params=params)
-    user_info = res.json()
-    user_sex = user_info['response'][0]['sex']
+def get_user_sex(user_sex, user_id):
     sex_to_find = 0
     if user_sex == 1:
         sex_to_find = 2
@@ -52,7 +50,7 @@ def get_user_sex(user_id):
     elif user_sex == 0:
         write_msg(user_id, "У вас не указан пол на странице. Если Вы хотите найти девушку - введите 1, если парня - 2")
         for event_sex in longpoll.listen():
-            if event_sex.type == VkEventType.MESSAGE_NEW and event.to_me:
+            if event_sex.type == VkEventType.MESSAGE_NEW and event_sex.to_me:
                 person_answer = event_sex.text
                 if person_answer == "1":
                     sex_to_find = 1
@@ -61,16 +59,7 @@ def get_user_sex(user_id):
     return sex_to_find
 
 
-def get_user_age_min(user_id):
-    url = 'https://api.vk.com/method/users.get'
-    params = {'user_id': user_id,
-              'access_token': user_token,
-              'v': '5.131',
-              'fields': 'bdate'
-              }
-    res = requests.get(url, params=params)
-    user_info = res.json()
-    user_bdate = user_info['response'][0]['bdate']
+def get_user_age_min(user_bdate, user_id):
     date_split = user_bdate.split('.')
     if len(date_split) == 3:
         year = int(date_split[2])
@@ -99,16 +88,7 @@ def get_user_age_min(user_id):
                 return age_for_find_min
 
 
-def get_user_age_max(user_id):
-    url = 'https://api.vk.com/method/users.get'
-    params = {'user_id': user_id,
-              'access_token': user_token,
-              'v': '5.131',
-              'fields': 'bdate'
-              }
-    res = requests.get(url, params=params)
-    user_info = res.json()
-    user_bdate = user_info['response'][0]['bdate']
+def get_user_age_max(user_bdate, user_id):
     date_split = user_bdate.split('.')
     if len(date_split) == 3:
         year = int(date_split[2])
@@ -134,20 +114,11 @@ def get_user_age_max(user_id):
         write_msg(user_id, 'Введите максимальный возраст для поиска половинки: ')
         for event_age_insert_second in longpoll.listen():
             if event_age_insert_second.type == VkEventType.MESSAGE_NEW and event_age_insert_second.to_me:
-                age_for_find_max = event.text
+                age_for_find_max = event_age_insert_second.text
                 return age_for_find_max
 
 
-def get_user_relation(user_id):
-    url = 'https://api.vk.com/method/users.get'
-    params = {'user_id': user_id,
-              'access_token': user_token,
-              'v': '5.131',
-              'fields': 'relation'
-              }
-    res = requests.get(url, params=params)
-    user_info = res.json()
-    user_relation = user_info['response'][0]['relation']
+def get_user_relation(user_relation, user_id):
     relation_list = (2, 3, 4, 5, 6, 7, 8)
     if user_relation in relation_list:
         write_msg(user_id, "Скорее всего, у Вас есть отношения, Вы точно хотите воспользоваться ботом? Да/Нет?")
@@ -161,16 +132,7 @@ def get_user_relation(user_id):
     return user_relation
 
 
-def get_user_town(user_id):
-    url = 'https://api.vk.com/method/users.get'
-    params = {'user_id': user_id,
-              'access_token': user_token,
-              'v': '5.131',
-              'fields': 'home_town'
-              }
-    res = requests.get(url, params=params)
-    user_info = res.json()
-    user_town = user_info['response'][0]['home_town']
+def get_user_town(user_town, user_id):
     if user_town == 'NULL':
         write_msg(user_id, "На Вашей странице не указан город, введите, пожалуйста, город:")
         for event_town in longpoll.listen():
@@ -185,7 +147,7 @@ def search_people(user_id, cand_sex, cand_age_min, cand_age_max, cand_town):
     params = {'user_id': user_id,
               'access_token': user_token,
               'v': '5.131',
-              'count': 1000,
+              'count': 100,
               'fields': 'first_name, last_name, id, is_closed',
               'sex': cand_sex,
               'age_from': cand_age_min,
@@ -197,33 +159,7 @@ def search_people(user_id, cand_sex, cand_age_min, cand_age_max, cand_town):
     res = requests.get(url, params=params)
     req = res.json()
     people_list = req['response']['items']
-    for person in people_list:
-        if check_users(person['id']) is True:
-            if person['is_closed'] is False:
-                candidate_name = person['first_name']
-                candidate_last_name = person['last_name']
-                candidate_id = str(person['id'])
-                candidate_link = 'vk.com/id' + str(person['id'])
-                candidate_info = candidate_name + " " + candidate_last_name + " " + candidate_link
-                write_msg(user_id, "Мы нашли подходящих для Вас людей. Показать человека?")
-                for event_find_user in longpoll.listen():
-                    if event_find_user.type == VkEventType.MESSAGE_NEW and event_find_user.to_me:
-                        person_answer = event_find_user.text.lower()
-                        if person_answer == "да":
-                            write_msg(user_id, candidate_info)
-                            photo_ids_max_likes = get_photos(candidate_id)
-                            count_photo_to_send = count_photo(photo_ids_max_likes, candidate_id)
-                            add_find_person(candidate_id, candidate_name, candidate_last_name, count_photo_to_send)
-                            vk.method('messages.send', {'user_id': user_id,
-                                                        'access_token': user_token,
-                                                        'message': "Фотографии:",
-                                                        'attachment': count_photo_to_send,
-                                                        'random_id': 0
-                                                        })
-                        if person_answer == "нет":
-                            write_msg(user_id, "Спасибо за уделенное время! До свидания!")
-                        return person_answer
-                return candidate_id
+    return people_list
 
 
 def count_photo(photo_ids_max_likes, candidate_id):
@@ -267,20 +203,44 @@ def get_photos(candidate_id):
     return max_likes
 
 
+def result(user_id, people_list):
+    for person in people_list:
+        if check_users(person['id']) is True:
+            if person['is_closed'] is False:
+                candidate_name = person['first_name']
+                candidate_last_name = person['last_name']
+                candidate_id = str(person['id'])
+                candidate_link = 'vk.com/id' + str(person['id'])
+                candidate_info = candidate_name + " " + candidate_last_name + " " + candidate_link
+                write_msg(user_id, candidate_info)
+                photo_ids_max_likes = get_photos(candidate_id)
+                count_photo_to_send = count_photo(photo_ids_max_likes, candidate_id)
+                add_find_person(candidate_id, candidate_name, candidate_last_name, count_photo_to_send)
+                vk.method('messages.send', {'user_id': user_id,
+                                            'access_token': user_token,
+                                            'message': "Фотографии:",
+                                            'attachment': count_photo_to_send,
+                                            'random_id': 0
+                                            })
+                return candidate_id
+
+
 for event in longpoll.listen():
     if event.type == VkEventType.MESSAGE_NEW:
         if event.to_me:
             request = event.text.lower()
             if request == "запустить бот":
                 find_user_id = str(event.user_id)
-                write_msg(event.user_id, f"Привет, {get_user_name_surname(find_user_id)}! "
+                write_msg(event.user_id, f"Привет, {get_user_info(find_user_id)[0]}! "
                                          f"Сейчас мы найдем подходящих для Вас пользователей в "
                                          f"соответстсвии с данными Вашей страницы")
-                candidate_sex = get_user_sex(find_user_id)
-                candidate_age_min = get_user_age_min(find_user_id)
-                candidate_age_max = get_user_age_max(find_user_id)
-                candidate_town = get_user_town(find_user_id)
-                search_people(find_user_id, candidate_sex, candidate_age_min, candidate_age_max, candidate_town)
+                candidate_sex = get_user_sex(get_user_info(find_user_id)[2], find_user_id)
+                candidate_age_min = get_user_age_min(get_user_info(find_user_id)[3], find_user_id)
+                candidate_age_max = get_user_age_max(get_user_info(find_user_id)[3], find_user_id)
+                candidate_town = get_user_town(get_user_info(find_user_id)[5], find_user_id)
+                people_list_hundred = search_people(find_user_id, candidate_sex, candidate_age_min,
+                                                    candidate_age_max, candidate_town)
+                result(event.user_id, people_list_hundred)
                 repeat = "Yes"
                 while repeat == "Yes":
                     write_msg(event.user_id, "Желаете продолжить поиск?")
@@ -288,8 +248,7 @@ for event in longpoll.listen():
                         if event_repeat.type == VkEventType.MESSAGE_NEW and event_repeat.to_me:
                             continue_answer = event_repeat.text.lower()
                             if continue_answer == "да":
-                                search_people(find_user_id, candidate_sex, candidate_age_min,
-                                              candidate_age_max, candidate_town)
+                                result(event.user_id, people_list_hundred)
                             if continue_answer == "нет":
                                 write_msg(event.user_id, "Спасибо за уделенное время! До свидания!")
                                 repeat = "No"
