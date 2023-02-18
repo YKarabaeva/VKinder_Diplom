@@ -30,15 +30,20 @@ def get_user_info(user_id):
     res = requests.get(url, params=params)
     user_info = res.json()
     try:
-        user_name = user_info['response'][0]['first_name']
-        user_surname = user_info['response'][0]['last_name']
-        user_sex = user_info['response'][0]['sex']
-        user_bdate = user_info['response'][0]['bdate']
-        user_relation = user_info['response'][0]['relation']
-        user_town = user_info['response'][0]['home_town']
-        return user_name, user_surname, user_sex, user_bdate, user_relation, user_town
+        user_information = user_info['response']
     except KeyError:
         write_msg(user_id, "Ошибка получения данных, попробуйте еще раз!")
+    try:
+        user_information = user_information[0]
+    except IndexError:
+        write_msg(user_id, "Ошибка получения данных, попробуйте еще раз!")
+    user_name = user_information['first_name']
+    user_surname = user_information['last_name']
+    user_sex = user_information['sex']
+    user_bdate = user_information['bdate']
+    user_relation = user_information['relation']
+    user_town = user_information['home_town']
+    return user_name, user_surname, user_sex, user_bdate, user_relation, user_town
 
 
 def get_user_sex(user_sex, user_id):
@@ -158,8 +163,12 @@ def search_people(user_id, cand_sex, cand_age_min, cand_age_max, cand_town):
               }
     res = requests.get(url, params=params)
     req = res.json()
-    people_list = req['response']['items']
-    return people_list
+    try:
+        people_vk = req['response']
+        people_list = people_vk['items']
+        return people_list
+    except KeyError:
+        write_msg(user_id, "Ошибка получения данных, попробуйте еще раз!")
 
 
 def count_photo(photo_ids_max_likes, candidate_id):
@@ -182,7 +191,7 @@ def count_photo(photo_ids_max_likes, candidate_id):
     return photo_to_send
 
 
-def get_photos(candidate_id):
+def get_photos(candidate_id, user_id):
     url = 'https://api.vk.com/method/photos.get'
     params = {'access_token': user_token,
               'owner_id': candidate_id,
@@ -194,35 +203,38 @@ def get_photos(candidate_id):
     res = requests.get(url, params=params)
     photos = res.json()
     needed_photos = dict()
-    photo_info = photos['response']['items']
-    for inf in photo_info:
-        id_photo = str(inf['id'])
-        likes_photo = inf['likes']['count']
-        needed_photos[id_photo] = likes_photo
-    max_likes = sorted(needed_photos, key=needed_photos.get, reverse=True)[:3]
-    return max_likes
+    try:
+        photo_info = photos['response']
+        photo_information = photo_info['items']
+        for inf in photo_information:
+            id_photo = str(inf['id'])
+            likes_photo = inf['likes']['count']
+            needed_photos[id_photo] = likes_photo
+        max_likes = sorted(needed_photos, key=needed_photos.get, reverse=True)[:3]
+        return max_likes
+    except KeyError:
+        write_msg(user_id, "Ошибка получения данных, попробуйте еще раз!")
 
 
-def result(user_id, people_list):
-    for person in people_list:
-        if check_users(person['id']) is True:
-            if person['is_closed'] is False:
-                candidate_name = person['first_name']
-                candidate_last_name = person['last_name']
-                candidate_id = str(person['id'])
-                candidate_link = 'vk.com/id' + str(person['id'])
-                candidate_info = candidate_name + " " + candidate_last_name + " " + candidate_link
-                write_msg(user_id, candidate_info)
-                photo_ids_max_likes = get_photos(candidate_id)
-                count_photo_to_send = count_photo(photo_ids_max_likes, candidate_id)
-                add_find_person(candidate_id, candidate_name, candidate_last_name, count_photo_to_send)
-                vk.method('messages.send', {'user_id': user_id,
-                                            'access_token': user_token,
-                                            'message': "Фотографии:",
-                                            'attachment': count_photo_to_send,
-                                            'random_id': 0
-                                            })
-                return candidate_id
+def result(user_id, person):
+    if check_users(person_from_hundred['id']) is True:
+        if person_from_hundred['is_closed'] is False:
+            candidate_name = person['first_name']
+            candidate_last_name = person['last_name']
+            candidate_id = str(person['id'])
+            candidate_link = 'vk.com/id' + str(person['id'])
+            candidate_info = candidate_name + " " + candidate_last_name + " " + candidate_link
+            write_msg(user_id, candidate_info)
+            photo_ids_max_likes = get_photos(candidate_id, user_id)
+            count_photo_to_send = count_photo(photo_ids_max_likes, candidate_id)
+            add_find_person(candidate_id, candidate_name, candidate_last_name, count_photo_to_send)
+            vk.method('messages.send', {'user_id': user_id,
+                                        'access_token': user_token,
+                                        'message': "Фотографии:",
+                                        'attachment': count_photo_to_send,
+                                        'random_id': 0
+                                        })
+            return candidate_id
 
 
 for event in longpoll.listen():
@@ -240,7 +252,8 @@ for event in longpoll.listen():
                 candidate_town = get_user_town(get_user_info(find_user_id)[5], find_user_id)
                 people_list_hundred = search_people(find_user_id, candidate_sex, candidate_age_min,
                                                     candidate_age_max, candidate_town)
-                result(event.user_id, people_list_hundred)
+                person_from_hundred = people_list_hundred.pop()
+                result(event.user_id, person_from_hundred)
                 repeat = "Yes"
                 while repeat == "Yes":
                     write_msg(event.user_id, "Желаете продолжить поиск?")
@@ -248,7 +261,14 @@ for event in longpoll.listen():
                         if event_repeat.type == VkEventType.MESSAGE_NEW and event_repeat.to_me:
                             continue_answer = event_repeat.text.lower()
                             if continue_answer == "да":
-                                result(event.user_id, people_list_hundred)
+                                if len(people_list_hundred) == 0:
+                                    people_list_hundred = search_people(find_user_id, candidate_sex, candidate_age_min,
+                                                                        candidate_age_max, candidate_town)
+                                    person_from_hundred = people_list_hundred.pop()
+                                    result(event.user_id, person_from_hundred)
+                                else:
+                                    person_from_hundred = people_list_hundred.pop()
+                                    result(event.user_id, person_from_hundred)
                             if continue_answer == "нет":
                                 write_msg(event.user_id, "Спасибо за уделенное время! До свидания!")
                                 repeat = "No"
