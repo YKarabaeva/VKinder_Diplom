@@ -34,16 +34,16 @@ def get_user_info(user_id):
     except KeyError:
         write_msg(user_id, "Ошибка получения данных, попробуйте еще раз!")
     try:
-        user_information = user_information[0]
+        user_information_lst = user_information[0]
+        user_name = user_information_lst['first_name']
+        user_surname = user_information_lst['last_name']
+        user_sex = user_information_lst['sex']
+        user_bdate = user_information_lst['bdate']
+        user_relation = user_information_lst['relation']
+        user_town = user_information_lst['home_town']
+        return user_name, user_surname, user_sex, user_bdate, user_relation, user_town
     except IndexError:
         write_msg(user_id, "Ошибка получения данных, попробуйте еще раз!")
-    user_name = user_information['first_name']
-    user_surname = user_information['last_name']
-    user_sex = user_information['sex']
-    user_bdate = user_information['bdate']
-    user_relation = user_information['relation']
-    user_town = user_information['home_town']
-    return user_name, user_surname, user_sex, user_bdate, user_relation, user_town
 
 
 def get_user_sex(user_sex, user_id):
@@ -166,7 +166,11 @@ def search_people(user_id, cand_sex, cand_age_min, cand_age_max, cand_town):
     try:
         people_vk = req['response']
         people_list = people_vk['items']
-        return people_list
+        people_open = []
+        for person in people_list:
+            if person['is_closed'] == False:
+                people_open.append(person)
+        return people_open
     except KeyError:
         write_msg(user_id, "Ошибка получения данных, попробуйте еще раз!")
 
