@@ -152,7 +152,7 @@ def search_people(user_id, cand_sex, cand_age_min, cand_age_max, cand_town):
     params = {'user_id': user_id,
               'access_token': user_token,
               'v': '5.131',
-              'count': 15,
+              'count': 100,
               'fields': 'first_name, last_name, id, is_closed',
               'sex': cand_sex,
               'age_from': cand_age_min,
