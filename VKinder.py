@@ -32,18 +32,18 @@ def get_user_info(user_id):
     try:
         user_information = user_info['response']
     except KeyError:
-        write_msg(user_id, "Ошибка получения данных, попробуйте еще раз!")
+        write_msg(user_id, "Ошибка получения данных (1), попробуйте еще раз!")
     try:
         user_information_lst = user_information[0]
-        user_name = user_information_lst['first_name']
-        user_surname = user_information_lst['last_name']
-        user_sex = user_information_lst['sex']
-        user_bdate = user_information_lst['bdate']
-        user_relation = user_information_lst['relation']
-        user_town = user_information_lst['home_town']
-        return user_name, user_surname, user_sex, user_bdate, user_relation, user_town
     except IndexError:
-        write_msg(user_id, "Ошибка получения данных, попробуйте еще раз!")
+        write_msg(user_id, "Ошибка при поиске данных (1), попробуйте еще раз!")
+    user_name = user_information_lst['first_name']
+    user_surname = user_information_lst['last_name']
+    user_sex = user_information_lst['sex']
+    user_bdate = user_information_lst['bdate']
+    user_relation = user_information_lst['relation']
+    user_town = user_information_lst['home_town']
+    return user_name, user_surname, user_sex, user_bdate, user_relation, user_town
 
 
 def get_user_sex(user_sex, user_id):
@@ -152,7 +152,7 @@ def search_people(user_id, cand_sex, cand_age_min, cand_age_max, cand_town):
     params = {'user_id': user_id,
               'access_token': user_token,
               'v': '5.131',
-              'count': 100,
+              'count': 15,
               'fields': 'first_name, last_name, id, is_closed',
               'sex': cand_sex,
               'age_from': cand_age_min,
@@ -165,14 +165,17 @@ def search_people(user_id, cand_sex, cand_age_min, cand_age_max, cand_town):
     req = res.json()
     try:
         people_vk = req['response']
-        people_list = people_vk['items']
-        people_open = []
-        for person in people_list:
-            if person['is_closed'] == False:
-                people_open.append(person)
-        return people_open
     except KeyError:
-        write_msg(user_id, "Ошибка получения данных, попробуйте еще раз!")
+        write_msg(user_id, "Ошибка получения данных (2), попробуйте еще раз!")
+    try:
+        people_list = people_vk['items']
+    except KeyError:
+        write_msg(user_id, "Ошибка при поиске данных (2), попробуйте еще раз!")
+    people_open = []
+    for person in people_list:
+        if person['is_closed'] == False:
+            people_open.append(person)
+    return people_open
 
 
 def count_photo(photo_ids_max_likes, candidate_id):
@@ -209,15 +212,18 @@ def get_photos(candidate_id, user_id):
     needed_photos = dict()
     try:
         photo_info = photos['response']
-        photo_information = photo_info['items']
-        for inf in photo_information:
-            id_photo = str(inf['id'])
-            likes_photo = inf['likes']['count']
-            needed_photos[id_photo] = likes_photo
-        max_likes = sorted(needed_photos, key=needed_photos.get, reverse=True)[:3]
-        return max_likes
     except KeyError:
-        write_msg(user_id, "Ошибка получения данных, попробуйте еще раз!")
+        write_msg(user_id, "Ошибка получения данных (3), попробуйте еще раз!")
+    try:
+        photo_information = photo_info['items']
+    except KeyError:
+        write_msg(user_id, "Ошибка при поиске данных (3), попробуйте еще раз!")
+    for inf in photo_information:
+        id_photo = str(inf['id'])
+        likes_photo = inf['likes']['count']
+        needed_photos[id_photo] = likes_photo
+    max_likes = sorted(needed_photos, key=needed_photos.get, reverse=True)[:3]
+    return max_likes
 
 
 def result(user_id, person):
